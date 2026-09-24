@@ -1,0 +1,247 @@
+{
+	"info": {
+		"_postman_id": "c61b6c0b-41da-45d2-a734-e4620f329971",
+		"name": "Laravel REST API - Products CRUD (V1)",
+		"description": "Colección completa para pruebas técnicas de API RESTful en Laravel siguiendo Clean Architecture (Controller -> FormRequest -> Service -> Model -> Resource).",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:8000/api/v1",
+			"type": "string"
+		},
+		{
+			"key": "product_id",
+			"value": "1",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "1. Listar Productos (Paginado)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/products?page=1&per_page=10",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products"
+					],
+					"query": [
+						{
+							"key": "page",
+							"value": "1"
+						},
+						{
+							"key": "per_page",
+							"value": "10"
+						}
+					]
+				},
+				"description": "Obtiene la lista de productos paginada. Retorna 200 OK con estructura 'data', 'links' y 'meta'."
+			},
+			"response": []
+		},
+		{
+			"name": "2. Crear Producto (Exitoso)",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"exec": [
+							"if (pm.response.code === 201) {",
+							"    var jsonData = pm.response.json();",
+							"    if (jsonData.data && jsonData.data.id) {",
+							"        pm.collectionVariables.set('product_id', jsonData.data.id);",
+							"    }",
+							"}"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Teclado Mecánico RGB Pro\",\n  \"sku\": \"KB-MECH-001\",\n  \"description\": \"Teclado mecánico con switches táctiles y retroiluminación RGB programable.\",\n  \"price\": 129.99,\n  \"stock\": 45,\n  \"is_active\": true\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/products",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products"
+					]
+				},
+				"description": "Crea un nuevo producto en la base de datos. Retorna 201 Created y almacena el ID creado en la variable de colección 'product_id'."
+			},
+			"response": []
+		},
+		{
+			"name": "3. Crear Producto - Error de Validación (422)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"\",\n  \"price\": -50\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/products",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products"
+					]
+				},
+				"description": "Envía un payload inválido para comprobar que el FormRequest intercepte la solicitud y retorne un 422 Unprocessable Entity con la lista estructurada de errores."
+			},
+			"response": []
+		},
+		{
+			"name": "4. Obtener Detalle de Producto (200)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/products/{{product_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products",
+						"{{product_id}}"
+					]
+				},
+				"description": "Consulta un producto por su ID. Retorna 200 OK formateado con ProductResource."
+			},
+			"response": []
+		},
+		{
+			"name": "5. Obtener Detalle - No Encontrado (404)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/products/999999",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products",
+						"999999"
+					]
+				},
+				"description": "Verifica el comportamiento cuando se consulta un ID inexistente. Retorna 404 Not Found."
+			},
+			"response": []
+		},
+		{
+			"name": "6. Actualizar Producto (PUT/PATCH)",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Teclado Mecánico RGB Pro (Edición Especial V2)\",\n  \"price\": 149.50,\n  \"stock\": 30\n}"
+				},
+				"url": {
+					"raw": "{{base_url}}/products/{{product_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products",
+						"{{product_id}}"
+					]
+				},
+				"description": "Actualiza parcialmente un registro mediante UpdateProductRequest. Retorna 200 OK con el recurso modificado."
+			},
+			"response": []
+		},
+		{
+			"name": "7. Eliminar Producto (DELETE)",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "{{base_url}}/products/{{product_id}}",
+					"host": [
+						"{{base_url}}"
+					],
+					"path": [
+						"products",
+						"{{product_id}}"
+					]
+				},
+				"description": "Ejecuta un Soft Delete sobre el registro mediante ProductService. Retorna 204 No Content sin cuerpo de respuesta."
+			},
+			"response": []
+		}
+	]
+}
