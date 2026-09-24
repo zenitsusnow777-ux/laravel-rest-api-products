@@ -1,59 +1,157 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🚀 API RESTful en Laravel 12: Arquitectura Limpia por Capas (CRUD de Productos)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+API RESTful profesional construida con **Laravel 12** siguiendo estrictamente el principio de **Separación de Responsabilidades (SRP)** y las mejores prácticas de la industria:
+`Ruta -> Form Request -> Controlador -> Servicio -> Modelo / DB -> API Resource`.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🏛️ 1. Arquitectura y Separación de Responsabilidades
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Para evitar el antipatrón del *Controlador Dios* (donde validación, lógica de negocio y base de datos se mezclan en un solo archivo), el sistema desacopla cada fase del ciclo de vida de la petición:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```
+[ Cliente HTTP (Postman / Frontend) ]
+                │
+                ▼ (Petición HTTP con Headers y Body JSON)
+        routes/api.php
+                │
+                ▼
+  [ App\Http\Requests ] ───(¿Falla validación?)──► [ HTTP 422 Unprocessable Content ]
+   (Store / Update)
+                │ (Datos 100% seguros y validados)
+                ▼
+ [ App\Http\Controllers ] ───(Orquestación pura)
+                │
+                ▼ (Inyección de dependencias)
+     [ App\Services ] ──────(Lógica de negocio, Transacciones ACID, Logs)
+                │
+                ▼
+      [ App\Models ] ────────(Mapeo ORM Eloquent, Mass Assignment, Casts)
+                │
+                ▼ (Entidad o Paginador)
+    [ App\Http\Resources ] ──(Transformación y DTO de salida)
+                │
+                ▼
+       [ Respuesta JSON ] ───► [ HTTP 200, 201, 204, etc. ]
+```
 
-## Learning Laravel
+### ¿Por qué existe cada capa?
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+| Capa | Ubicación en el Código | Responsabilidad Única | Qué problema evita |
+| :--- | :--- | :--- | :--- |
+| **Rutas** | `routes/api.php` | Mapeo de verbos HTTP a controladores con versionamiento (`/api/v1`). | Evita rutas desordenadas o sin semántica RESTful. |
+| **Validación** | `app/Http/Requests/Api/V1/` | Autorización previa y validación estricta del contrato de entrada. | Impide que datos sucios alcancen la lógica de negocio o la base de datos. |
+| **Controlador** | `app/Http/Controllers/Api/V1/` | **Orquestador puro**. Recibe datos validados, delega al servicio y responde con el Resource. | Evita el *Fat Controller* y facilita pruebas unitarias. |
+| **Servicio** | `app/Services/` | Lógica de negocio, reglas de dominio y transacciones (`DB::transaction`). | Permite reutilizar la lógica desde comandos CLI, Jobs o Webhooks. |
+| **Modelo** | `app/Models/` | Persistencia, relaciones, `$fillable` (protección Mass Assignment) y `$casts`. | Desacopla el almacenamiento físico del procesamiento de negocio. |
+| **Resource** | `app/Http/Resources/Api/V1/` | DTO de presentación. Serializa y formatea los datos al JSON final. | Evita exponer columnas internas o cambiar contratos públicos si la DB cambia. |
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 📋 2. Catálogo de Endpoints de la API (V1)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+**URL Base:** `http://127.0.0.1:8000/api/v1`
 
-### Premium Partners
+### Headers Obligatorios:
+- `Accept: application/json`
+- `Content-Type: application/json` *(para peticiones POST y PUT/PATCH)*
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+| Método | Endpoint | Acción / Descripción | Código Éxito | Códigos Error |
+| :---: | :--- | :--- | :---: | :---: |
+| `GET` | `/api/v1/products` | Listar productos paginados (`?page=1&per_page=10`) | `200 OK` | `500` |
+| `POST` | `/api/v1/products` | Crear un nuevo producto en la base de datos | `201 Created` | `422`, `500` |
+| `GET` | `/api/v1/products/{id}` | Obtener detalle de un producto específico | `200 OK` | `404 Not Found` |
+| `PUT` | `/api/v1/products/{id}` | Actualizar un producto existente | `200 OK` | `422`, `404 Not Found` |
+| `DELETE`| `/api/v1/products/{id}` | Eliminar producto de forma lógica (Soft Delete) | `204 No Content`| `404 Not Found` |
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## 📦 3. Ejemplos de Peticiones y Respuestas
 
-## Code of Conduct
+### Crear Producto (`POST /api/v1/products`)
+**Payload (JSON):**
+```json
+{
+  "name": "Teclado Mecánico RGB Pro",
+  "sku": "KB-MECH-001",
+  "description": "Teclado mecánico switches táctiles programables",
+  "price": 129.99,
+  "stock": 45,
+  "is_active": true
+}
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+**Respuesta (`201 Created`):**
+```json
+{
+  "data": {
+    "id": 1,
+    "sku": "KB-MECH-001",
+    "name": "Teclado Mecánico RGB Pro",
+    "description": "Teclado mecánico switches táctiles programables",
+    "price": 129.99,
+    "stock": 45,
+    "is_active": true,
+    "created_at": "2026-09-24T19:53:13Z",
+    "updated_at": "2026-09-24T19:53:13Z"
+  }
+}
+```
 
-## Security Vulnerabilities
+### Validación de Errores (`422 Unprocessable Content`)
+Si se envía el cuerpo vacío (`{}`), la capa de validación responde automáticamente:
+```json
+{
+  "message": "El nombre del producto es obligatorio. (and 2 more errors)",
+  "errors": {
+    "name": ["El nombre del producto es obligatorio."],
+    "sku": ["El código SKU es obligatorio."],
+    "price": ["El precio del producto es obligatorio."]
+  }
+}
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🛠️ 4. Guía de Instalación y Puesta en Marcha
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Prerrequisitos
+- **PHP** >= 8.2 (con extensiones `pdo_sqlite` o `pdo_mysql`, `curl`, `mbstring`, `openssl`, `zip`)
+- **Composer** instalado
+
+### Pasos:
+1. Clonar el repositorio:
+   ```bash
+   git clone https://github.com/zenitsusnow777-ux/laravel-rest-api-products.git
+   cd laravel-rest-api-products
+   ```
+2. Instalar dependencias de PHP:
+   ```bash
+   composer install
+   ```
+3. Configurar variables de entorno:
+   ```bash
+   cp .env.example .env
+   php artisan key:generate
+   ```
+4. Ejecutar las migraciones:
+   ```bash
+   php artisan migrate
+   ```
+5. Iniciar el servidor local:
+   ```bash
+   php artisan serve
+   ```
+   La API estará lista y escuchando en `http://127.0.0.1:8000`.
+
+---
+
+## 🧪 5. Pruebas con Postman
+
+En la raíz del proyecto se incluye el archivo listo para importar:
+👉 **`postman_collection.json`**
+
+### Características de la colección:
+- Configurada con la variable de entorno `{{base_url}}` = `http://127.0.0.1:8000/api/v1`.
+- Headers obligatorios `Accept` y `Content-Type` preconfigurados.
+- Script automático en la petición de creación que guarda el nuevo `id` en `{{product_id}}` para encadenar las pruebas de detalle, actualización y eliminación sin copiar y pegar manualmente.
